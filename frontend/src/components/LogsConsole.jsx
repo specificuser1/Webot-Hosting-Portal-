@@ -5,7 +5,7 @@ export default function LogsConsole() {
   const [logs, setLogs] = useState([]);
 
   useEffect(() => {
-    const ws = new WebSocket("wss://your-backend-url/ws/logs");
+    const ws = new WebSocket("wss://your-backend-service.up.railway.app/ws/logs");
 
     ws.onmessage = (msg) =>
       setLogs((prev) => [...prev, msg.data]);
