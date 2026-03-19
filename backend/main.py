@@ -1,41 +1,70 @@
 from fastapi import FastAPI, WebSocket
-from database import DB
+from models import TokenInput, BulkTokens, StatusModel
+from database import Database
 from bot_runner import BotManager
 from ws_manager import WSManager
 
 app = FastAPI()
-db = DB()
+
+db = Database()
 bots = BotManager()
 ws = WSManager()
 
-@app.get("/bots")
-def get_bots():
-    return db.get_bots()
+# -------------------------
+#  BOT APIs
+# -------------------------
 
 @app.post("/bot/add")
-def add_bot(token: str):
-    db.add_bot(token)
-    return {"msg": "Bot Added"}
+def add_bot(data: TokenInput):
+    db.add_bot(data.token)
+    return {"msg": "Bot added"}
 
 @app.post("/bot/add/bulk")
-def add_bot_bulk(tokens: list[str]):
-    for t in tokens:
-        db.add_bot(t)
-    return {"msg": "Bulk Bots Added"}
+def add_bulk(data: BulkTokens):
+    db.add_bulk(data.tokens)
+    return {"msg": "Bulk bots added"}
 
-@app.post("/bot/start")
+@app.get("/bots")
+def get_bots():
+    return db.get_all()
+
+
+# -------------------------
+#  START / STOP BUTTONS
+# -------------------------
+
+@app.post("/bots/start")
 async def start_all():
-    await bots.start_all(db.get_bots())
-    return {"msg": "Bots Started"}
+    await bots.start_all(db.get_all())
+    return {"msg": "All bots started"}
 
-@app.post("/bot/stop")
+@app.post("/bots/stop")
 async def stop_all():
     await bots.stop_all()
-    return {"msg": "Bots Stopped"}
+    return {"msg": "All bots stopped"}
+
+
+# -------------------------
+#  SET CUSTOM STATUS
+# -------------------------
+
+@app.post("/bots/status")
+async def apply_status(data: StatusModel):
+    await bots.apply_status(data.activity, data.text)
+    return {"msg": "Status Applied"}
+
+
+# -------------------------
+#  WEB SOCKET LOGS
+# -------------------------
 
 @app.websocket("/ws/logs")
-async def websocket_logs(ws_conn: WebSocket):
-    await ws.connect(ws_conn)
-    while True:
-        msg = await ws_conn.receive_text()
-        await ws.broadcast(msg)
+async def websocket_logs(websocket: WebSocket):
+    await ws.connect(websocket)
+
+    try:
+        while True:
+            msg = await websocket.receive_text()
+            await ws.broadcast(msg)
+    except:
+        await ws.disconnect(websocket)
